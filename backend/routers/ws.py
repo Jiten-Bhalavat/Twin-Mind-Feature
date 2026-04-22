@@ -65,14 +65,19 @@ async def push_suggestions(websocket: WebSocket, session: SessionState):
 
 async def process_audio(websocket: WebSocket, session: SessionState, data: str):
     loop = asyncio.get_event_loop()
+    logger.info("Audio chunk received (base64 length=%d)", len(data))
 
     wav_bytes = await loop.run_in_executor(None, decode_and_convert, data)
     if wav_bytes is None:
+        logger.error("Audio conversion failed — ffmpeg returned None")
         return
+    logger.info("Audio converted to WAV (%d bytes)", len(wav_bytes))
 
     text = await loop.run_in_executor(None, transcribe_chunk, wav_bytes, session.api_key)
     if not text:
+        logger.error("Transcription returned empty — Groq Whisper returned nothing")
         return
+    logger.info("Transcription: %s", text[:100])
 
     if session.transcript_chunks:
         text = deduplicate_overlap(session.transcript_chunks[-1]["text"], text)
