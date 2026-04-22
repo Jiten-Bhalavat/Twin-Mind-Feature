@@ -32,7 +32,7 @@ def _call_llm(client: Groq, model: str, prompt: str, max_tokens: int = 1024) -> 
             temperature=1,
             max_completion_tokens=max_tokens,
             top_p=1,
-            reasoning_effort="none",
+            reasoning_effort="low",
             stream=False,
             stop=None,
         )
@@ -129,7 +129,7 @@ def _repair_json(raw: str, client: Groq) -> list[dict] | None:
             temperature=1,
             max_completion_tokens=600,
             top_p=1,
-            reasoning_effort="none",
+            reasoning_effort="low",
             stream=False,
             stop=None,
         )

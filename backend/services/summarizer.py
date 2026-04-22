@@ -32,7 +32,7 @@ def summarize_chunks(chunks: list[dict], api_key: str) -> str | None:
             temperature=1,
             max_completion_tokens=512,
             top_p=1,
-            reasoning_effort="none",
+            reasoning_effort="low",
             stream=False,
             stop=None,
         )
