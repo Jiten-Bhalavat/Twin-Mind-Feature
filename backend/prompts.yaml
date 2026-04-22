@@ -28,6 +28,20 @@ suggestions:
       {{"type": "...", "preview": "...", "detail_hint": "..."}}
     ]
 
+summarizer:
+  prompt: |
+    You are summarizing an older portion of a live meeting transcript to save context space.
+    Compress the transcript below into a concise paragraph (4-6 sentences max) that captures:
+    - The main topics discussed
+    - Key decisions, names, numbers, or facts mentioned
+    - Any open questions or action items raised
+
+    Write in past tense. Start with "Earlier in this conversation:".
+    Return only the summary paragraph — no headings, no bullet points, no extra text.
+
+    Transcript to summarize:
+    {transcript}
+
 chat:
   default_instructions: |
     Be concise and direct. Answer in 3-4 sentences unless the question clearly needs more depth.

@@ -9,6 +9,7 @@ from utils.audio import decode_and_convert
 from services.transcription import transcribe_chunk, deduplicate_overlap
 from services.suggestions import generate_suggestions
 from services.chat import stream_chat_response
+from services.summarizer import maybe_summarize
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -90,6 +91,9 @@ async def process_audio(websocket: WebSocket, session: SessionState, data: str):
         "text": text,
         "timestamp": chunk["timestamp"],
     })
+
+    loop = asyncio.get_event_loop()
+    asyncio.create_task(maybe_summarize(session, loop))
 
     elapsed = time.monotonic() - session.last_suggestion_time
     if elapsed >= session.settings["refresh_interval"]:
