@@ -1,7 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import asyncio
-import time
 import logging
 from datetime import datetime, timezone
 
@@ -21,7 +20,6 @@ class SessionState:
         self.transcript_chunks: list[dict] = []
         self.suggestion_batches: list[dict] = []
         self.chat_history: list[dict] = []
-        self.last_suggestion_time: float = 0.0
         self.suggestion_in_progress: bool = False
         self.chat_in_progress: bool = False
         self.settings: dict = {
@@ -41,7 +39,6 @@ async def push_suggestions(websocket: WebSocket, session: SessionState):
     if session.suggestion_in_progress or not session.transcript_chunks:
         return
     session.suggestion_in_progress = True
-    session.last_suggestion_time = time.monotonic()
     try:
         loop = asyncio.get_event_loop()
         suggestions = await loop.run_in_executor(
@@ -93,10 +90,7 @@ async def process_audio(websocket: WebSocket, session: SessionState, data: str):
 
     loop = asyncio.get_event_loop()
     asyncio.create_task(maybe_summarize(session, loop))
-
-    elapsed = time.monotonic() - session.last_suggestion_time
-    if elapsed >= session.settings["refresh_interval"]:
-        asyncio.create_task(push_suggestions(websocket, session))
+    asyncio.create_task(push_suggestions(websocket, session))
 
 
 async def handle_chat(websocket: WebSocket, session: SessionState, content: str):
