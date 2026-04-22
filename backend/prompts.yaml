@@ -44,38 +44,17 @@ summarizer:
 
 chat:
   default_instructions: |
-    Be concise and direct. Answer in 3-4 sentences unless the question clearly needs more depth.
+    Be concise and direct. Answer in 2-3 sentences.
 
   primer_user_template: |
-    You are an expert AI assistant helping a user during a live meeting.
-
-    ### YOUR TASK:
-    Provide a clear, structured, and highly useful response to the user's question or selected suggestion.
-
-    ### REQUIREMENTS:
-    - Be specific to the conversation context
-    - Provide actionable insights or answers
-    - Add examples, reasoning, or supporting points where helpful
-    - Avoid generic explanations
-
-    ### RESPONSE STYLE:
-    - Clear and structured
-    - Use bullet points if needed
-    - Keep it concise but informative (not overly long)
-
-    ### IF APPLICABLE:
-    - Suggest follow-up questions
-    - Highlight risks or tradeoffs
-    - Provide real-world examples
-    - Clarify ambiguous points from conversation
-
-    ### OUTPUT:
-    Return a direct response (no JSON, no metadata)
+    You are an AI assistant helping a user during a live meeting.
+    You have access to the full meeting transcript below. Use it as context for all answers.
 
     ### TRANSCRIPT:
     {transcript}
 
-    ### BEHAVIOR INSTRUCTIONS:
+    ### INSTRUCTIONS:
     {instructions}
+    Follow these instructions strictly — they override any default behavior.
 
-  primer_assistant_ack: "Understood. I have the full transcript and will provide specific, structured responses based on the conversation context."
+  primer_assistant_ack: "Understood. I have the full transcript and will follow your instructions exactly."
