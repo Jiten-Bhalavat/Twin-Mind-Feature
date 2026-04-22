@@ -41,6 +41,7 @@ async def push_suggestions(websocket: WebSocket, session: SessionState):
     if session.suggestion_in_progress or not session.transcript_chunks:
         return
     session.suggestion_in_progress = True
+    session.last_suggestion_time = time.monotonic()
     try:
         loop = asyncio.get_event_loop()
         suggestions = await loop.run_in_executor(
@@ -54,7 +55,6 @@ async def push_suggestions(websocket: WebSocket, session: SessionState):
         if suggestions:
             batch = {"timestamp": utcnow(), "suggestions": suggestions}
             session.suggestion_batches.append(batch)
-            session.last_suggestion_time = time.monotonic()
             await websocket.send_json({"type": "suggestions_update", "batch": batch})
             logger.info("Pushed %d suggestions", len(suggestions))
         else:
