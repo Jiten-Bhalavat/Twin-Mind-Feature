@@ -44,7 +44,10 @@ summarizer:
 
 chat:
   default_instructions: |
-    Be concise and direct. Answer in 2-3 sentences.
+    Be specific to the conversation context. Provide actionable insights or answers.
+    Add examples, reasoning, or supporting points where helpful. Avoid generic explanations.
+    Use bullet points if needed. Keep responses concise but informative.
+    If applicable: suggest follow-up questions, highlight risks or tradeoffs, provide real-world examples, clarify ambiguous points from the conversation.
 
   primer_user_template: |
     You are an AI assistant helping a user during a live meeting.
