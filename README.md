@@ -2,7 +2,7 @@
 
 A web app that listens to live audio from your microphone, continuously transcribes it, and surfaces 3 context-aware suggestions on every new transcript chunk. Click any suggestion to get a detailed answer in the chat panel, or type questions directly.
 
-**Live demo:** *(deploy URL goes here)*
+**Live demo:** https://twin-mind-feature.vercel.app/                 
 **Repo:** https://github.com/Jiten-Bhalavat/Twin-Mind-Feature
 
 ---
