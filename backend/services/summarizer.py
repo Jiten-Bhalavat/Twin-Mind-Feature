@@ -1,13 +1,14 @@
 import logging
 from pathlib import Path
 import yaml
+from fastapi import WebSocket
 from groq import Groq, APIError, RateLimitError, AuthenticationError
 
 logger = logging.getLogger(__name__)
 
 SUMMARY_MODEL = "openai/gpt-oss-120b"
-SUMMARY_THRESHOLD = 20   # summarize when chunk count exceeds this
-SUMMARY_BATCH = 10       # number of oldest chunks to collapse each time
+SUMMARY_THRESHOLD = 20
+SUMMARY_BATCH = 10
 
 
 def _load_prompt() -> str:
@@ -16,11 +17,12 @@ def _load_prompt() -> str:
         data = yaml.safe_load(f)
     return data["summarizer"]["prompt"].strip()
 
+_PROMPT_TEMPLATE = _load_prompt()
+
 
 def summarize_chunks(chunks: list[dict], api_key: str) -> str | None:
-    prompt_template = _load_prompt()
     transcript = "\n\n".join(c["text"] for c in chunks)
-    prompt = prompt_template.replace("{transcript}", transcript)
+    prompt = _PROMPT_TEMPLATE.replace("{transcript}", transcript)
 
     try:
         client = Groq(api_key=api_key)
@@ -30,7 +32,7 @@ def summarize_chunks(chunks: list[dict], api_key: str) -> str | None:
             temperature=1,
             max_completion_tokens=512,
             top_p=1,
-            reasoning_effort="medium",
+            reasoning_effort="none",
             stream=False,
             stop=None,
         )
@@ -48,11 +50,10 @@ def summarize_chunks(chunks: list[dict], api_key: str) -> str | None:
         return None
 
 
-async def maybe_summarize(session, loop) -> None:
+async def maybe_summarize(websocket: WebSocket, session, loop) -> None:
     """
     If transcript exceeds SUMMARY_THRESHOLD, collapse the oldest SUMMARY_BATCH
-    chunks into a single summary chunk in place.
-    Runs in an executor so it doesn't block the event loop.
+    chunks into a single summary chunk and notify the frontend.
     """
     if len(session.transcript_chunks) <= SUMMARY_THRESHOLD:
         return
@@ -65,6 +66,7 @@ async def maybe_summarize(session, loop) -> None:
     if not summary_text:
         return
 
+    replaced_timestamps = [c["timestamp"] for c in to_summarize]
     summary_chunk = {
         "text": summary_text,
         "timestamp": to_summarize[0]["timestamp"],
@@ -72,6 +74,13 @@ async def maybe_summarize(session, loop) -> None:
     }
 
     session.transcript_chunks = [summary_chunk] + session.transcript_chunks[SUMMARY_BATCH:]
+
+    await websocket.send_json({
+        "type": "transcript_summarized",
+        "summary": summary_chunk,
+        "replaced_timestamps": replaced_timestamps,
+    })
+
     logger.info(
         "Rolling summary applied — collapsed %d chunks, transcript now %d chunks",
         SUMMARY_BATCH,

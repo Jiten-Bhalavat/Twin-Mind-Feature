@@ -14,8 +14,10 @@ def _load_prompts() -> dict:
         return yaml.safe_load(f)
 
 _PROMPTS = _load_prompts()
-_PRIMER_USER_TEMPLATE: str = _PROMPTS["chat"]["primer_user_template"]
-_PRIMER_ASSISTANT_ACK: str = _PROMPTS["chat"]["primer_assistant_ack"]
+_DEFAULT_INSTRUCTIONS: str = _PROMPTS["chat"]["default_instructions"].strip()
+_REGULAR_CHAT_TEMPLATE: str = _PROMPTS["chat"]["regular_chat_template"].strip()
+_SUGGESTION_CLICK_TEMPLATE: str = _PROMPTS["chat"]["suggestion_click_template"].strip()
+_PRIMER_ASSISTANT_ACK: str = _PROMPTS["chat"]["primer_assistant_ack"].strip()
 
 
 def build_transcript_context(transcript_chunks: list[dict], context_window: int = 0) -> str:
@@ -26,10 +28,25 @@ def build_transcript_context(transcript_chunks: list[dict], context_window: int 
 
 
 def _build_primer(instructions: str, transcript: str) -> list[dict]:
+    """Primer for regular typed chat messages — injects transcript as context."""
+    system = instructions.strip() or _DEFAULT_INSTRUCTIONS
+    user_content = _REGULAR_CHAT_TEMPLATE.format(transcript=transcript)
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user_content},
+        {"role": "assistant", "content": _PRIMER_ASSISTANT_ACK},
+    ]
+
+
+def _build_suggestion_primer(detail_hint: str, transcript: str, instructions: str) -> list[dict]:
+    """Primer for suggestion-click expansions — guides the model on what to expand."""
     result = []
     if instructions.strip():
         result.append({"role": "system", "content": instructions.strip()})
-    user_content = _PRIMER_USER_TEMPLATE.format(transcript=transcript)
+    user_content = _SUGGESTION_CLICK_TEMPLATE.format(
+        detail_hint=detail_hint,
+        transcript=transcript,
+    )
     result += [
         {"role": "user", "content": user_content},
         {"role": "assistant", "content": _PRIMER_ASSISTANT_ACK},
@@ -43,13 +60,16 @@ async def stream_chat_response(
     api_key: str,
     chat_instructions: str = "",
     context_window: int = 0,
+    detail_hint: str = "",
 ) -> AsyncGenerator[str, None]:
-    """
-    Stream a chat response. Handles both free-typed messages and suggestion clicks —
-    the caller just passes the user message, this function handles context injection.
-    """
     transcript = build_transcript_context(transcript_chunks, context_window)
-    full_messages = _build_primer(chat_instructions, transcript) + messages
+
+    if detail_hint:
+        primer = _build_suggestion_primer(detail_hint, transcript, chat_instructions)
+    else:
+        primer = _build_primer(chat_instructions, transcript)
+
+    full_messages = primer + messages
 
     try:
         client = Groq(api_key=api_key)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import useAppStore from '../store/useAppStore'
 import useWebSocket from '../hooks/useWebSocket'
 
@@ -52,42 +52,43 @@ function BatchSection({ batch, onSelect, isLatest }) {
 }
 
 export default function SuggestionsPanel({ onSuggestionClick }) {
-  const { suggestionBatches, suggestionsError, isRecording } = useAppStore()
+  const { suggestionBatches, suggestionsError, suggestionsGenerating, isRecording } = useAppStore()
   const { send } = useWebSocket()
-  const [refreshing, setRefreshing] = useState(false)
-
-  const prevBatchLen = useRef(suggestionBatches.length)
   const refreshTimer = useRef(null)
-
-  // Stop spinner when a new batch arrives
-  useEffect(() => {
-    if (refreshing && suggestionBatches.length > prevBatchLen.current) {
-      setRefreshing(false)
-      clearTimeout(refreshTimer.current)
-    }
-    prevBatchLen.current = suggestionBatches.length
-  }, [suggestionBatches, refreshing])
+  const refreshingRef = useRef(false)
 
   const handleRefresh = () => {
-    if (refreshing) return
-    setRefreshing(true)
+    if (suggestionsGenerating || refreshingRef.current) return
+    refreshingRef.current = true
     send({ type: 'refresh_suggestions' })
-    refreshTimer.current = setTimeout(() => setRefreshing(false), 10000)
+    // Safety clear in case the backend never responds
+    refreshTimer.current = setTimeout(() => { refreshingRef.current = false }, 12000)
+  }
+
+  // Clear the safety timer once backend responds
+  if (!suggestionsGenerating) {
+    clearTimeout(refreshTimer.current)
+    refreshingRef.current = false
   }
 
   return (
     <div className="flex flex-col h-full p-4 border-r border-white/10">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 shrink-0">
-        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">
-          Live Suggestions
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest">
+            Live Suggestions
+          </h2>
+          {suggestionsGenerating && (
+            <span className="w-3 h-3 border-2 border-white/15 border-t-white/50 rounded-full animate-spin" />
+          )}
+        </div>
         <button
           onClick={handleRefresh}
-          disabled={refreshing || !isRecording}
+          disabled={suggestionsGenerating || !isRecording}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white/60 transition-colors"
         >
-          {refreshing ? (
+          {suggestionsGenerating ? (
             <span className="w-3 h-3 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
           ) : (
             <span>↻</span>
@@ -108,7 +109,9 @@ export default function SuggestionsPanel({ onSuggestionClick }) {
         {suggestionBatches.length === 0 ? (
           <p className="text-sm italic text-white/25">
             {isRecording
-              ? 'Suggestions appear after the first transcript chunk…'
+              ? suggestionsGenerating
+                ? 'Generating suggestions…'
+                : 'Suggestions appear after the first transcript chunk…'
               : 'Start recording to see live suggestions'}
           </p>
         ) : (

@@ -25,14 +25,16 @@ let storedApiKey = null
 export default function useWebSocket() {
   const {
     setConnected, setReconnecting,
-    addTranscriptChunk, addSuggestionBatch, setSuggestionsError,
+    addTranscriptChunk, replaceTranscriptWithSummary,
+    addSuggestionBatch, setSuggestionsError, setSuggestionsGenerating,
     updateLastAssistantMessage, setChatStreaming,
     addToast,
   } = useAppStore()
 
   const handlersRef = useRef({
     setConnected, setReconnecting,
-    addTranscriptChunk, addSuggestionBatch, setSuggestionsError,
+    addTranscriptChunk, replaceTranscriptWithSummary,
+    addSuggestionBatch, setSuggestionsError, setSuggestionsGenerating,
     updateLastAssistantMessage, setChatStreaming,
     addToast,
   })
@@ -40,7 +42,8 @@ export default function useWebSocket() {
   useEffect(() => {
     handlersRef.current = {
       setConnected, setReconnecting,
-      addTranscriptChunk, addSuggestionBatch, setSuggestionsError,
+      addTranscriptChunk, replaceTranscriptWithSummary,
+      addSuggestionBatch, setSuggestionsError, setSuggestionsGenerating,
       updateLastAssistantMessage, setChatStreaming,
       addToast,
     }
@@ -59,6 +62,14 @@ export default function useWebSocket() {
 
       case 'transcript_update':
         h.addTranscriptChunk({ text: msg.text, timestamp: msg.timestamp })
+        break
+
+      case 'transcript_summarized':
+        h.replaceTranscriptWithSummary(msg.summary, msg.replaced_timestamps)
+        break
+
+      case 'suggestions_generating':
+        h.setSuggestionsGenerating(true)
         break
 
       case 'suggestions_update':
@@ -85,7 +96,6 @@ export default function useWebSocket() {
         break
 
       case 'settings_ack':
-        // SettingsDrawer shows inline "✓ Saved" — no toast needed
         break
 
       case 'error':

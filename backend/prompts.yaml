@@ -14,7 +14,7 @@ suggestions:
     RULES:
     1. Focus on the LAST portion of the transcript — suggestions must reflect what was just said.
     2. Each "preview" must be ONE sentence, self-contained, and deliver standalone value even if never clicked.
-    3. "detail_hint" is a brief internal note (not shown to user) guiding what expanded detail to provide on click.
+    3. "detail_hint" is a 1-2 sentence internal note describing exactly what content, angle, or fact should be surfaced when the user clicks this suggestion — be specific enough that the response LLM can expand it without rereading the preview.
     4. Vary the types — do not return three of the same type.
     5. Return ONLY a valid JSON array — no markdown, no explanation, no code fences.
 
@@ -44,33 +44,29 @@ summarizer:
 
 chat:
   default_instructions: |
-    You are an AI assistant helping a user during a live meeting. Answer questions clearly and concisely based on the transcript context provided.
+    You are an AI assistant helping a user during a live meeting. Answer questions clearly and concisely based on the transcript context provided. Be specific — use names, numbers, and facts from the transcript when relevant.
 
-  primer_user_template: |
-    You are an AI assistant helping a user during a live meeting.
+  regular_chat_template: |
+    Here is the live meeting transcript for context. Use it to answer the user's question accurately and specifically.
 
-    The user clicked a suggestion and needs a quick, practical response they can immediately use in conversation.
-
-    ### YOUR TASK:
-    Expand the suggestion into a short, clear, and useful response.
-
-    ### RULES:
-    - Keep it concise (2–4 lines max)
-    - Focus only on what is immediately useful
-    - Avoid long explanations
-    - No fluff or generic advice
-    - Make it sound natural and conversational
-
-    Transcript:
+    ### MEETING TRANSCRIPT:
     {transcript}
 
-  primer_assistant_ack: "Understood. I have the full transcript and will provide specific, structured responses based on the conversation context."
+  suggestion_click_template: |
+    You are an AI assistant helping a user during a live meeting.
+    The user clicked a suggestion card and wants a focused, immediately usable response.
 
-conversation_monitor:
-  prompt: |
-    You are monitoring a live meeting transcript and generating a summary of the conversation so far.
-    Compress the transcript below into a concise paragraph (4-6 sentences max) that captures:
-    - The main topics discussed
-    - Key decisions, names, numbers, or facts mentioned
-    - Any open questions or action items raised
-    Write in past tense. Start with "Earlier in this conversation:".
+    ### WHAT TO EXPAND ON:
+    {detail_hint}
+
+    ### RULES:
+    - Be direct and specific — 2 to 5 sentences
+    - Use names, numbers, or facts from the transcript where relevant
+    - Sound conversational, not like a report
+    - No filler phrases ("Great question!", "Certainly!", "Of course!")
+    - If the hint calls for a question, phrase it as something the user could actually say out loud
+
+    ### MEETING TRANSCRIPT:
+    {transcript}
+
+  primer_assistant_ack: "Understood. I have the meeting context and will give specific, practical responses."

@@ -15,13 +15,26 @@ const useAppStore = create((set) => ({
   transcriptChunks: [],
   addTranscriptChunk: (chunk) =>
     set((state) => ({ transcriptChunks: [...state.transcriptChunks, chunk] })),
+  replaceTranscriptWithSummary: (summary, replacedTimestamps) =>
+    set((state) => {
+      const kept = state.transcriptChunks.filter(
+        (c) => !replacedTimestamps.includes(c.timestamp)
+      )
+      return { transcriptChunks: [summary, ...kept] }
+    }),
 
   // Suggestions
   suggestionBatches: [],
   suggestionsError: null,
+  suggestionsGenerating: false,
   addSuggestionBatch: (batch) =>
-    set((state) => ({ suggestionBatches: [batch, ...state.suggestionBatches], suggestionsError: null })),
-  setSuggestionsError: (msg) => set({ suggestionsError: msg }),
+    set((state) => ({
+      suggestionBatches: [batch, ...state.suggestionBatches],
+      suggestionsError: null,
+      suggestionsGenerating: false,
+    })),
+  setSuggestionsError: (msg) => set({ suggestionsError: msg, suggestionsGenerating: false }),
+  setSuggestionsGenerating: (val) => set({ suggestionsGenerating: val }),
 
   // Chat
   chatHistory: [],
@@ -47,7 +60,7 @@ const useAppStore = create((set) => ({
   settings: {
     suggestionContextWindow: 5,
     chatContextWindow: 0,
-refreshInterval: 30,
+    refreshInterval: 30,
     suggestionPrompt: '',
     chatSystemPrompt: '',
   },

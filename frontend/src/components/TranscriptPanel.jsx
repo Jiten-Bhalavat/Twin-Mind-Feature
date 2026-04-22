@@ -3,6 +3,10 @@ import useAppStore from '../store/useAppStore'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import useWebSocket from '../hooks/useWebSocket'
 
+function formatTime(isoString) {
+  return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
 export default function TranscriptPanel() {
   const { isRecording, transcriptChunks, addToast } = useAppStore()
   const [micError, setMicError] = useState(null)
@@ -10,7 +14,6 @@ export default function TranscriptPanel() {
   const { send } = useWebSocket()
   const { startRecording, stopRecording } = useAudioRecorder(send)
 
-  // Auto-scroll to latest chunk
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [transcriptChunks])
@@ -74,12 +77,21 @@ export default function TranscriptPanel() {
             {isRecording ? 'Listening… transcript appears every ~30s' : 'Press Start to begin recording'}
           </p>
         ) : (
-          transcriptChunks.map((chunk, i) => (
-            <div key={i} className="text-sm text-white/80 leading-relaxed">
-              <span className="text-[10px] text-white/25 block mb-0.5">{chunk.timestamp}</span>
-              {chunk.text}
-            </div>
-          ))
+          transcriptChunks.map((chunk, i) =>
+            chunk.is_summary ? (
+              <div key={i} className="pl-3 border-l-2 border-white/10">
+                <span className="text-[10px] text-white/20 uppercase tracking-wider block mb-0.5">
+                  ∑ summary · {formatTime(chunk.timestamp)}
+                </span>
+                <p className="text-sm text-white/40 leading-relaxed italic">{chunk.text}</p>
+              </div>
+            ) : (
+              <div key={i} className="text-sm text-white/80 leading-relaxed">
+                <span className="text-[10px] text-white/25 block mb-0.5">{formatTime(chunk.timestamp)}</span>
+                {chunk.text}
+              </div>
+            )
+          )
         )}
         <div ref={bottomRef} />
       </div>

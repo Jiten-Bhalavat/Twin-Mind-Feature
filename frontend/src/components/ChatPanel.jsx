@@ -32,38 +32,29 @@ const ChatPanel = forwardRef(function ChatPanel(_, ref) {
   const { send } = useWebSocket()
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
-  const inputRef = useRef(null)
 
-  // Expose sendSuggestion to parent via ref
   useImperativeHandle(ref, () => ({
     sendSuggestion(suggestion) {
-      dispatchMessage(suggestion.preview, true)
+      const preview = suggestion.preview?.trim()
+      if (!preview || chatStreaming) return
+      addChatMessage({ role: 'user', content: preview, timestamp: new Date().toISOString() })
+      addChatMessage({ role: 'assistant', content: '', timestamp: new Date().toISOString() })
+      setChatStreaming(true)
+      send({ type: 'suggestion_click', preview, detail_hint: suggestion.detail_hint || '' })
     }
   }))
 
-  // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatHistory])
 
-  const dispatchMessage = (content, isSuggestion = false) => {
-    if (!content.trim() || chatStreaming) return
-
-    // Add user bubble immediately
+  const handleSend = () => {
+    const content = input.trim()
+    if (!content || chatStreaming) return
     addChatMessage({ role: 'user', content, timestamp: new Date().toISOString() })
-    // Add empty assistant placeholder — will be filled by streaming chunks
     addChatMessage({ role: 'assistant', content: '', timestamp: new Date().toISOString() })
     setChatStreaming(true)
-
-    if (isSuggestion) {
-      send({ type: 'suggestion_click', preview: content })
-    } else {
-      send({ type: 'chat_message', content })
-    }
-  }
-
-  const handleSend = () => {
-    dispatchMessage(input.trim())
+    send({ type: 'chat_message', content })
     setInput('')
   }
 
@@ -101,7 +92,6 @@ const ChatPanel = forwardRef(function ChatPanel(_, ref) {
       {/* Input */}
       <div className="flex gap-2 shrink-0">
         <textarea
-          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}

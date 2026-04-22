@@ -25,7 +25,7 @@ class SessionState:
         self.settings: dict = {
             "suggestion_context_window": 5,
             "chat_context_window": 0,
-"refresh_interval": 30,
+            "refresh_interval": 30,
             "suggestion_prompt": "",
             "chat_system_prompt": "",
         }
@@ -39,6 +39,7 @@ async def push_suggestions(websocket: WebSocket, session: SessionState):
     if session.suggestion_in_progress or not session.transcript_chunks:
         return
     session.suggestion_in_progress = True
+    await websocket.send_json({"type": "suggestions_generating"})
     try:
         loop = asyncio.get_event_loop()
         suggestions = await loop.run_in_executor(
@@ -93,12 +94,11 @@ async def process_audio(websocket: WebSocket, session: SessionState, data: str):
         "timestamp": chunk["timestamp"],
     })
 
-    loop = asyncio.get_event_loop()
-    asyncio.create_task(maybe_summarize(session, loop))
+    asyncio.create_task(maybe_summarize(websocket, session, loop))
     asyncio.create_task(push_suggestions(websocket, session))
 
 
-async def handle_chat(websocket: WebSocket, session: SessionState, content: str):
+async def handle_chat(websocket: WebSocket, session: SessionState, content: str, detail_hint: str = ""):
     """Stream a chat response. Works for both typed messages and suggestion clicks."""
     if session.chat_in_progress:
         await websocket.send_json({"type": "error", "message": "Chat already in progress"})
@@ -112,7 +112,6 @@ async def handle_chat(websocket: WebSocket, session: SessionState, content: str)
     try:
         full_response = ""
 
-        # Build messages without timestamps for the LLM, exclude empty placeholder
         llm_messages = [
             {"role": m["role"], "content": m["content"]}
             for m in session.chat_history[:-1]
@@ -123,6 +122,7 @@ async def handle_chat(websocket: WebSocket, session: SessionState, content: str)
             api_key=session.api_key,
             chat_instructions=session.settings["chat_system_prompt"],
             context_window=session.settings["chat_context_window"],
+            detail_hint=detail_hint,
         )
 
         async for token in gen:
@@ -133,7 +133,6 @@ async def handle_chat(websocket: WebSocket, session: SessionState, content: str)
                 "done": False,
             })
 
-        # Finalise
         session.chat_history[-1]["content"] = full_response
         await websocket.send_json({"type": "chat_response_chunk", "content": "", "done": True})
 
@@ -197,8 +196,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({"type": "error", "message": "Not initialized"})
                     continue
                 preview = message.get("preview", "").strip()
+                detail_hint = message.get("detail_hint", "").strip()
                 if preview:
-                    asyncio.create_task(handle_chat(websocket, session, preview))
+                    asyncio.create_task(handle_chat(websocket, session, preview, detail_hint))
 
             elif msg_type == "export_request":
                 if not session.api_key:

@@ -23,16 +23,16 @@ def build_context(transcript_chunks: list[dict], context_window: int) -> str:
     return "\n\n".join(c["text"] for c in chunks).strip()
 
 
-def _call_llm(client: Groq, model: str, prompt: str) -> str | None:
+def _call_llm(client: Groq, model: str, prompt: str, max_tokens: int = 1024) -> str | None:
     """Call the LLM and return raw text, or None on any failure."""
     try:
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=1,
-            max_completion_tokens=1024,
+            max_completion_tokens=max_tokens,
             top_p=1,
-            reasoning_effort="medium",
+            reasoning_effort="none",
             stream=False,
             stop=None,
         )
@@ -113,7 +113,7 @@ def generate_suggestions(
                 "id": str(uuid.uuid4()),
                 "type": item.get("type", "context"),
                 "preview": str(item["preview"])[:300],
-                "detail_hint": str(item.get("detail_hint", ""))[:300],
+                "detail_hint": str(item.get("detail_hint", ""))[:500],
             })
 
     logger.info("Generated %d valid suggestions", len(valid))
@@ -129,7 +129,7 @@ def _repair_json(raw: str, client: Groq) -> list[dict] | None:
             temperature=1,
             max_completion_tokens=600,
             top_p=1,
-            reasoning_effort="medium",
+            reasoning_effort="none",
             stream=False,
             stop=None,
         )
