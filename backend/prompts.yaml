@@ -44,20 +44,33 @@ summarizer:
 
 chat:
   default_instructions: |
-    Be specific to the conversation context. Provide actionable insights or answers.
-    Add examples, reasoning, or supporting points where helpful. Avoid generic explanations.
-    Use bullet points if needed. Keep responses concise but informative.
-    If applicable: suggest follow-up questions, highlight risks or tradeoffs, provide real-world examples, clarify ambiguous points from the conversation.
+    You are an AI assistant helping a user during a live meeting. Answer questions clearly and concisely based on the transcript context provided.
 
   primer_user_template: |
     You are an AI assistant helping a user during a live meeting.
-    You have access to the full meeting transcript below. Use it as context for all answers.
 
-    ### TRANSCRIPT:
+    The user clicked a suggestion and needs a quick, practical response they can immediately use in conversation.
+
+    ### YOUR TASK:
+    Expand the suggestion into a short, clear, and useful response.
+
+    ### RULES:
+    - Keep it concise (2–4 lines max)
+    - Focus only on what is immediately useful
+    - Avoid long explanations
+    - No fluff or generic advice
+    - Make it sound natural and conversational
+
+    Transcript:
     {transcript}
 
-    ### INSTRUCTIONS:
-    {instructions}
-    Follow these instructions strictly — they override any default behavior.
+  primer_assistant_ack: "Understood. I have the full transcript and will provide specific, structured responses based on the conversation context."
 
-  primer_assistant_ack: "Understood. I have the full transcript and will follow your instructions exactly."
+conversation_monitor:
+  prompt: |
+    You are monitoring a live meeting transcript and generating a summary of the conversation so far.
+    Compress the transcript below into a concise paragraph (4-6 sentences max) that captures:
+    - The main topics discussed
+    - Key decisions, names, numbers, or facts mentioned
+    - Any open questions or action items raised
+    Write in past tense. Start with "Earlier in this conversation:".

@@ -19,7 +19,7 @@ Transcript (recent context):
 
 Return ONLY a JSON array with type, preview, detail_hint fields.`
 
-const PLACEHOLDER_CHAT = `Be concise. Answer in 3-4 sentences unless the question clearly needs more depth.`
+const PLACEHOLDER_CHAT = `You are an AI assistant helping a user during a live meeting. Answer questions clearly and concisely based on the transcript context provided.`
 
 function Field({ label, hint, children }) {
   return (

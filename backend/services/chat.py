@@ -14,7 +14,6 @@ def _load_prompts() -> dict:
         return yaml.safe_load(f)
 
 _PROMPTS = _load_prompts()
-DEFAULT_CHAT_INSTRUCTIONS: str = _PROMPTS["chat"]["default_instructions"].strip()
 _PRIMER_USER_TEMPLATE: str = _PROMPTS["chat"]["primer_user_template"]
 _PRIMER_ASSISTANT_ACK: str = _PROMPTS["chat"]["primer_assistant_ack"]
 
@@ -27,16 +26,14 @@ def build_transcript_context(transcript_chunks: list[dict], context_window: int 
 
 
 def _build_primer(instructions: str, transcript: str) -> list[dict]:
-    instr = instructions.strip() or DEFAULT_CHAT_INSTRUCTIONS
+    if instructions.strip():
+        # User's custom prompt fully replaces the template
+        user_content = instructions.strip() + "\n\n### TRANSCRIPT:\n" + transcript
+    else:
+        user_content = _PRIMER_USER_TEMPLATE.format(transcript=transcript)
     return [
-        {
-            "role": "user",
-            "content": _PRIMER_USER_TEMPLATE.format(transcript=transcript, instructions=instr),
-        },
-        {
-            "role": "assistant",
-            "content": _PRIMER_ASSISTANT_ACK,
-        },
+        {"role": "user", "content": user_content},
+        {"role": "assistant", "content": _PRIMER_ASSISTANT_ACK},
     ]
 
 
