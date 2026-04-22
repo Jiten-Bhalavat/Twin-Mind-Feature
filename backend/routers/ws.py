@@ -27,8 +27,7 @@ class SessionState:
         self.settings: dict = {
             "suggestion_context_window": 5,
             "chat_context_window": 0,
-            "chat_history_window": 20,
-            "refresh_interval": 30,
+"refresh_interval": 30,
             "suggestion_prompt": "",
             "chat_system_prompt": "",
         }
@@ -115,11 +114,10 @@ async def handle_chat(websocket: WebSocket, session: SessionState, content: str)
         full_response = ""
 
         # Build messages without timestamps for the LLM, exclude empty placeholder
-        history = session.chat_history[:-1]
-        cap = session.settings["chat_history_window"]
-        if cap > 0:
-            history = history[-cap:]
-        llm_messages = [{"role": m["role"], "content": m["content"]} for m in history]
+        llm_messages = [
+            {"role": m["role"], "content": m["content"]}
+            for m in session.chat_history[:-1]
+        ]
         gen = stream_chat_response(
             messages=llm_messages,
             transcript_chunks=session.transcript_chunks,
