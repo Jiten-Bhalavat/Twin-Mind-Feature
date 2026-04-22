@@ -26,15 +26,15 @@ def build_transcript_context(transcript_chunks: list[dict], context_window: int 
 
 
 def _build_primer(instructions: str, transcript: str) -> list[dict]:
+    result = []
     if instructions.strip():
-        # User's custom prompt fully replaces the template
-        user_content = instructions.strip() + "\n\n### TRANSCRIPT:\n" + transcript
-    else:
-        user_content = _PRIMER_USER_TEMPLATE.format(transcript=transcript)
-    return [
+        result.append({"role": "system", "content": instructions.strip()})
+    user_content = _PRIMER_USER_TEMPLATE.format(transcript=transcript)
+    result += [
         {"role": "user", "content": user_content},
         {"role": "assistant", "content": _PRIMER_ASSISTANT_ACK},
     ]
+    return result
 
 
 async def stream_chat_response(
