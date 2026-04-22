@@ -1,6 +1,6 @@
 # TwinMind — Live Suggestions
 
-A web app that listens to live audio from your microphone, continuously transcribes it, and surfaces 3 context-aware suggestions every ~30 seconds. Click any suggestion to get a detailed answer in the chat panel, or type questions directly.
+A web app that listens to live audio from your microphone, continuously transcribes it, and surfaces 3 context-aware suggestions on every new transcript chunk. Click any suggestion to get a detailed answer in the chat panel, or type questions directly.
 
 **Live demo:** *(deploy URL goes here)*
 **Repo:** https://github.com/Jiten-Bhalavat/Twin-Mind-Feature
@@ -10,10 +10,12 @@ A web app that listens to live audio from your microphone, continuously transcri
 ## Features
 
 - **Live transcription** — mic audio split into overlapping 30s chunks, transcribed via Groq Whisper Large v3
-- **Live suggestions** — 3 cards generated every 30s: questions to ask, talking points, fact checks, answers, or context
-- **Chat panel** — click any suggestion or type freely; full transcript is always in context
+- **Live suggestions** — 3 cards generated on every new transcript chunk: questions to ask, talking points, fact checks, answers, or context
+- **Chat panel** — click any suggestion or type freely; full transcript always in context
 - **Streaming responses** — chat answers stream token by token
-- **Settings** — edit suggestion prompt, chat behavior, context windows, and refresh interval at runtime
+- **Rolling transcript summary** — older chunks are auto-summarized to prevent context overflow on long sessions
+- **Centralized prompts** — all LLM prompt templates live in `backend/prompts.yaml`, no code changes needed to tune them
+- **Settings** — edit suggestion prompt, chat behavior, context windows at runtime
 - **Export** — download full session as JSON (transcript + suggestions + chat history)
 
 ---
@@ -27,6 +29,7 @@ A web app that listens to live audio from your microphone, continuously transcri
 | Transcription | Groq — Whisper Large v3 |
 | Suggestions & Chat | Groq — openai/gpt-oss-120b |
 | Audio conversion | ffmpeg (webm → 16kHz mono WAV) |
+| Deployment | Vercel (frontend) + Railway (backend) |
 
 ---
 
@@ -115,7 +118,7 @@ Open **http://localhost:5173** in your browser.
 2. Paste your Groq API key (`gsk_...`) and click **Connect**
 3. Click **Start** in the Transcript panel to begin recording
 4. Speak — transcript appears every ~30 seconds
-5. Suggestions appear automatically after the first transcript chunk
+5. Suggestions appear automatically after each transcript chunk
 6. Click any suggestion card → detailed answer streams in the chat panel
 7. Type follow-up questions directly in the chat input
 8. Click **↓ Export** in the header to download the full session as JSON
@@ -128,16 +131,18 @@ Open **http://localhost:5173** in your browser.
 Twin-Mind-Feature/
 ├── backend/
 │   ├── main.py                  # FastAPI app entry point
+│   ├── prompts.yaml             # All LLM prompt templates (edit here to tune)
 │   ├── requirements.txt
 │   ├── .env.example
 │   ├── routers/
 │   │   └── ws.py                # WebSocket handler, session state, message routing
 │   ├── services/
 │   │   ├── transcription.py     # Groq Whisper — transcribe + overlap deduplication
-│   │   ├── suggestions.py       # Groq LLM — 3 suggestion cards per batch
-│   │   └── chat.py              # Groq LLM — streaming chat with transcript context
+│   │   ├── suggestions.py       # Groq LLM — 3 suggestion cards per chunk
+│   │   ├── chat.py              # Groq LLM — streaming chat with transcript context
+│   │   └── summarizer.py        # Rolling transcript summary for long sessions
 │   ├── models/
-│   │   └── schemas.py           # Pydantic message schemas
+│   │   └── schemas.py
 │   └── utils/
 │       └── audio.py             # ffmpeg audio conversion (webm → WAV)
 │
@@ -152,10 +157,10 @@ Twin-Mind-Feature/
 │       │   ├── SettingsDrawer.jsx
 │       │   └── Toast.jsx
 │       ├── hooks/
-│       │   ├── useWebSocket.js  # Singleton WebSocket with reconnect logic
+│       │   ├── useWebSocket.js      # Singleton WebSocket with reconnect logic
 │       │   └── useAudioRecorder.js  # MediaRecorder with 30s overlap chunking
 │       └── store/
-│           └── useAppStore.js   # Zustand global state
+│           └── useAppStore.js       # Zustand global state
 │
 ├── ARCHITECTURE.md              # Full system design and WebSocket protocol
 ├── TODO.md                      # Phase-by-phase implementation plan
@@ -166,6 +171,8 @@ Twin-Mind-Feature/
 
 ## Prompt Strategy
 
+All prompts live in `backend/prompts.yaml`. Edit that file and restart the backend to change any behavior — no Python code changes needed.
+
 ### Live Suggestions
 The suggestion prompt receives the last N transcript chunks (default: 5, configurable) and asks the model to pick the most useful mix of:
 - `question` — something worth asking next
@@ -174,25 +181,27 @@ The suggestion prompt receives the last N transcript chunks (default: 5, configu
 - `fact_check` — a claim worth verifying
 - `context` — background info that helps the listener
 
-The key rule enforced in the prompt: **suggestions must reflect what was just said**, not the whole session. This keeps them timely and relevant rather than generic.
+Suggestions fire on **every new transcript chunk** so the panel is always current.
 
 ### Chat
-Rather than a system message (which reasoning models often under-weight), the transcript is injected as a **priming user/assistant exchange** at the start of the messages list:
+`openai/gpt-oss-120b` is a reasoning model that underweights system messages. The transcript is injected as a **priming user/assistant exchange** at the start of the message list:
 
 ```
-[user]   [Meeting transcript — use this as context]
-         <full transcript here>
-         [Behavior instructions]
-         Be concise. Answer in 3-4 sentences...
+[user]      You are an expert AI assistant...
+            ### TRANSCRIPT:
+            <full transcript here>
+            ### BEHAVIOR INSTRUCTIONS:
+            Be concise...
 
-[assistant]  Understood. I have the full transcript...
+[assistant] Understood. I have the full transcript...
 
-[user]   <actual question>
+[user]      <actual question>
 ```
-
-This pattern reliably gets reasoning models to treat the transcript as established context.
 
 Both typed questions and suggestion card clicks go through the same pipeline — one prompt, one model, consistent behavior.
+
+### Rolling Summary
+When the transcript exceeds 20 chunks, the oldest 10 are summarized into a single `"Earlier in this conversation: ..."` paragraph. This keeps the context window bounded for long sessions without losing early context entirely.
 
 ---
 
@@ -200,11 +209,29 @@ Both typed questions and suggestion card clicks go through the same pipeline —
 
 | Setting | Default | Description |
 |---|---|---|
-| Suggestion refresh interval | 30s | How often new batches are generated |
 | Suggestion context window | 5 chunks | How many transcript chunks feed the suggestion model |
 | Chat context window | 0 (all) | How many chunks feed the chat model |
-| Live suggestion prompt | See `suggestions.py` | Full prompt template, must include `{transcript}` |
-| Chat behavior instructions | "Be concise..." | Behavioral rules prepended to the chat context |
+| Live suggestion prompt | See `prompts.yaml` | Full prompt template, must include `{transcript}` |
+| Chat behavior instructions | See `prompts.yaml` | Behavioral rules only — transcript is injected automatically |
+
+---
+
+## Deployment
+
+### Backend — Railway
+
+1. Create a new Railway project and connect your GitHub repo
+2. Set the root directory to `backend/`
+3. Set the start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+4. Railway provides `$PORT` automatically — no hardcoded port needed
+5. Note the public Railway URL
+
+### Frontend — Vercel
+
+1. Create a new Vercel project and connect your GitHub repo
+2. Set the root directory to `frontend/`
+3. Add environment variable: `VITE_WS_URL = wss://<your-railway-url>/ws`
+4. Deploy — Vercel builds and publishes automatically
 
 ---
 
@@ -212,10 +239,14 @@ Both typed questions and suggestion card clicks go through the same pipeline —
 
 **Overlap chunking vs. clean cuts** — Audio is recorded in 30s chunks with a 5s overlap (two MediaRecorders run in parallel). This prevents words being cut at boundaries. The backend deduplicates overlapping text by finding the longest matching word sequence at chunk boundaries.
 
-**Priming vs. system message for context** — `openai/gpt-oss-120b` is a reasoning model that tends to underweight system messages. Injecting the transcript as a priming conversation turn (user says "here's the transcript", assistant acknowledges) gives the model the context as established fact rather than an instruction it can deprioritize.
+**Priming vs. system message for context** — `openai/gpt-oss-120b` is a reasoning model that underweights system messages. Injecting the transcript as a priming conversation turn (user says "here's the transcript", assistant acknowledges) gives the model the context as established fact rather than an instruction it can deprioritize.
 
-**Single chat pipeline** — Originally had separate "detailed answer" and "chat" prompts. Simplified to one pipeline because suggestion clicks and typed messages are functionally identical — both are user messages that need transcript context. Fewer moving parts, easier to tune.
+**Single chat pipeline** — Both suggestion clicks and typed messages use the same pipeline. Fewer moving parts, easier to tune, consistent behavior across both entry points.
+
+**Rolling summary vs. truncation** — Older transcript chunks are summarized rather than dropped. The model always has a compressed view of early conversation plus the full recent context. Token count stays bounded without losing context entirely.
+
+**Suggestions per chunk vs. time-based** — Suggestions fire on every new transcript chunk rather than on a fixed 30s timer. This eliminates drift between chunk timing and suggestion timing, ensuring the panel always updates when new content arrives.
 
 **No persistence** — Session state lives entirely in backend memory and frontend Zustand. Refreshing the page starts a new session. This keeps the architecture simple and avoids auth/database complexity for a demo.
 
-**No RAG** — The full transcript is passed on every request. For a 1-hour meeting this could be 5,000–10,000 words, well within the model's context window. RAG would add latency and retrieval complexity with no benefit at this scale.
+**No RAG** — The full transcript is passed on every request. For a 1-hour meeting this could be 5,000–10,000 words — well within the model's context window, and the rolling summary keeps it bounded. RAG would add latency and retrieval complexity with no benefit at this scale.
