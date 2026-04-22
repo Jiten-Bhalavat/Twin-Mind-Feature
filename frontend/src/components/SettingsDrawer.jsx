@@ -6,6 +6,7 @@ const DEFAULTS = {
   refreshInterval: 30,
   suggestionContextWindow: 5,
   chatContextWindow: 0,
+  chatHistoryWindow: 20,
   suggestionPrompt: '',
   chatSystemPrompt: '',
 }
@@ -52,6 +53,7 @@ export default function SettingsDrawer({ open, onClose }) {
         refresh_interval: local.refreshInterval,
         suggestion_context_window: local.suggestionContextWindow,
         chat_context_window: local.chatContextWindow,
+        chat_history_window: local.chatHistoryWindow,
         suggestion_prompt: local.suggestionPrompt,
         chat_system_prompt: local.chatSystemPrompt,
       },
@@ -123,6 +125,17 @@ export default function SettingsDrawer({ open, onClose }) {
                 max={50}
                 value={local.chatContextWindow}
                 onChange={(e) => set('chatContextWindow', Number(e.target.value))}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-500 transition-colors"
+              />
+            </Field>
+
+            <Field label="Chat history window (messages)" hint="Max number of previous messages sent to the model (0 = unlimited). Keeps long sessions within context limits.">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={local.chatHistoryWindow}
+                onChange={(e) => set('chatHistoryWindow', Number(e.target.value))}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-violet-500 transition-colors"
               />
             </Field>

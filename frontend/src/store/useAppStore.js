@@ -47,6 +47,7 @@ const useAppStore = create((set) => ({
   settings: {
     suggestionContextWindow: 5,
     chatContextWindow: 0,
+    chatHistoryWindow: 20,
     refreshInterval: 30,
     suggestionPrompt: '',
     chatSystemPrompt: '',
