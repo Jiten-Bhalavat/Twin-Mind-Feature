@@ -49,6 +49,9 @@ def decode_and_convert(base64_data: str) -> bytes | None:
         with open(wav_path, 'rb') as f:
             return f.read()
 
+    except FileNotFoundError:
+        logger.error("ffmpeg not found — is it installed and on PATH?")
+        return None
     except subprocess.TimeoutExpired:
         logger.error("ffmpeg conversion timed out")
         return None
