@@ -1,40 +1,21 @@
 import json
 import logging
 import uuid
+from pathlib import Path
+import yaml
 from groq import Groq, APIError, RateLimitError, AuthenticationError
 
 logger = logging.getLogger(__name__)
 
 SUGGESTION_MODEL = "openai/gpt-oss-120b"
 
-DEFAULT_PROMPT = """\
-You are an AI meeting assistant monitoring a live conversation.
+def _load_prompts() -> dict:
+    path = Path(__file__).parent.parent / "prompts.yaml"
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
-Based on the transcript below, generate exactly 3 suggestions that would be most useful RIGHT NOW to someone listening.
-
-SUGGESTION TYPES — pick the best mix given what was just said:
-- "question"     : A sharp follow-up question the listener could ask next
-- "talking_point": A relevant fact, angle, or idea worth raising
-- "answer"       : A direct answer to a question just asked in the transcript
-- "fact_check"   : A specific claim worth verifying
-- "context"      : Background info that helps understand what is being discussed
-
-RULES:
-1. Focus on the LAST portion of the transcript — suggestions must reflect what was just said.
-2. Each "preview" must be ONE sentence, self-contained, and deliver standalone value even if never clicked.
-3. "detail_hint" is a brief internal note (not shown to user) guiding what expanded detail to provide on click.
-4. Vary the types — do not return three of the same type.
-5. Return ONLY a valid JSON array — no markdown, no explanation, no code fences.
-
-Transcript (recent context):
-{transcript}
-
-Required output format — exactly this, nothing else:
-[
-  {{"type": "...", "preview": "...", "detail_hint": "..."}},
-  {{"type": "...", "preview": "...", "detail_hint": "..."}},
-  {{"type": "...", "preview": "...", "detail_hint": "..."}}
-]"""
+_PROMPTS = _load_prompts()
+DEFAULT_PROMPT: str = _PROMPTS["suggestions"]["default_prompt"].strip()
 
 
 def build_context(transcript_chunks: list[dict], context_window: int) -> str:

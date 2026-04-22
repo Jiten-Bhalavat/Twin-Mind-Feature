@@ -1,12 +1,22 @@
 import logging
+from pathlib import Path
 from typing import AsyncGenerator
+import yaml
 from groq import Groq, APIError, RateLimitError, AuthenticationError
 
 logger = logging.getLogger(__name__)
 
 CHAT_MODEL = "openai/gpt-oss-120b"
 
-DEFAULT_CHAT_INSTRUCTIONS = "Be concise and direct. Answer in 3-4 sentences unless the question clearly needs more depth."
+def _load_prompts() -> dict:
+    path = Path(__file__).parent.parent / "prompts.yaml"
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+_PROMPTS = _load_prompts()
+DEFAULT_CHAT_INSTRUCTIONS: str = _PROMPTS["chat"]["default_instructions"].strip()
+_PRIMER_USER_TEMPLATE: str = _PROMPTS["chat"]["primer_user_template"]
+_PRIMER_ASSISTANT_ACK: str = _PROMPTS["chat"]["primer_assistant_ack"]
 
 
 def build_transcript_context(transcript_chunks: list[dict], context_window: int = 0) -> str:
@@ -17,23 +27,15 @@ def build_transcript_context(transcript_chunks: list[dict], context_window: int 
 
 
 def _build_primer(instructions: str, transcript: str) -> list[dict]:
-    """
-    Inject transcript as a priming user/assistant exchange.
-    Reasoning models reliably read context injected this way vs system messages.
-    """
     instr = instructions.strip() or DEFAULT_CHAT_INSTRUCTIONS
     return [
         {
             "role": "user",
-            "content": (
-                f"[Meeting transcript — use this as context for all answers]\n\n"
-                f"{transcript}\n\n"
-                f"[Behavior instructions]\n{instr}"
-            ),
+            "content": _PRIMER_USER_TEMPLATE.format(transcript=transcript, instructions=instr),
         },
         {
             "role": "assistant",
-            "content": "Understood. I have the full transcript and will use it to answer your questions.",
+            "content": _PRIMER_ASSISTANT_ACK,
         },
     ]
 
