@@ -5,6 +5,9 @@ A web app that listens to live audio from your microphone, continuously transcri
 **Live demo:** https://twin-mind-feature.vercel.app/                 
 **Repo:** https://github.com/Jiten-Bhalavat/Twin-Mind-Feature
 
+## Demo Video: 
+https://github.com/user-attachments/assets/51bad1a5-be77-4515-ac72-603634bd5f6c
+
 ---
 
 ## Features
